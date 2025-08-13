@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS detalles_pedido (
     FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
 );
 
+
+
+
 CREATE TABLE IF NOT EXISTS pagos (
     id_pago INT AUTO_INCREMENT PRIMARY key, 
     id_pedido INT, 
