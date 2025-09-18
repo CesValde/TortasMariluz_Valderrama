@@ -1,9 +1,9 @@
-CREATE DATABASE IF NOT EXISTS tortas_mariluz 
+CREATE DATABASE IF NOT EXISTS tortas_mariluz ;
 
 /* para desacrivar modo seguro */
 SET SQL_SAFE_UPDATES = 0;
 
-USE tortas_mariluz
+USE tortas_mariluz ;
 
 CREATE TABLE IF NOT EXISTS productos (
     id_producto INT AUTO_INCREMENT PRIMARY KEY, 
@@ -25,11 +25,11 @@ CREATE TABLE IF NOT EXISTS clientes (
 CREATE TABLE IF NOT EXISTS pedidos (
     id_pedido INT AUTO_INCREMENT PRIMARY KEY,
     id_cliente INT NOT NULL,
-    fecha_pedido DATE,         -- tiene CURRENT_DATE
+    fecha_pedido DATE DEFAULT (CURRENT_DATE),
     fecha_entrega DATE NOT NULL,
     total DECIMAL NOT NULL,
-    estado_pago ENUM('Pendiente', 'Pagado', 'Parcial') NOT NULL,
-    estado_entrega ENUM('Pendiente', 'Entregado', 'Cancelado') NOT NULL,
+    estado_pago ENUM('Pendiente', 'Pagado', 'Parcial') NOT NULL DEFAULT "Pendiente",
+    estado_entrega ENUM('Pendiente', 'Entregado', 'Cancelado') NOT NULL DEFAULT "Pendiente",
     FOREIGN key (id_cliente) REFERENCES clientes(id_cliente)
 );
 
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS detalles_pedido (
 CREATE TABLE IF NOT EXISTS pagos (
     id_pago INT AUTO_INCREMENT PRIMARY key, 
     id_pedido INT NOT NULL, 
-    fecha_pago DATE,        -- tiene CURRENT_DATE
+    fecha_pago DATE DEFAULT (CURRENT_DATE),
     monto_pagado DECIMAL NOT NULL,
     metodo_pagado VARCHAR(30) NOT NULL,
     FOREIGN key (id_pedido) REFERENCES pedidos(id_pedido)
@@ -73,38 +73,79 @@ CREATE TABLE IF NOT EXISTS recetas (
     FOREIGN KEY (id_ingrediente) REFERENCES ingredientes(id_ingrediente)
 );
 
--- ALTER TABLE
-ALTER TABLE pedidos 
-MODIFY fecha_pedido DATE DEFAULT (CURRENT_DATE);
+CREATE TABLE IF NOT EXISTS empleados (
+    id_empleado INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    usuario VARCHAR(30) UNIQUE NOT NULL,
+    contrasena VARCHAR(100) NOT NULL,
+    rol ENUM('Admin', 'Ventas', 'Producción') NOT NULL
+);
 
-ALTER TABLE pagos 
-MODIFY fecha_pago DATE DEFAULT (CURRENT_DATE);
+CREATE TABLE IF NOT EXISTS proveedores (
+    id_proveedor INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    telefono VARCHAR(20),
+    email VARCHAR(50)
+);
 
-/* Agregamos columnas a la tabla pedidos */
-ALTER TABLE 
-pedidos ADD COLUMN estado_pago ENUM('Pendiente', 'Pagado', 'Parcial') NOT NULL DEFAULT "Pendiente", 
-ADD COLUMN estado_entrega ENUM('Pendiente', 'Entregado', 'Cancelado') NOT NULL DEFAULT "Pendiente";
+/* Tabla intermedia entre proveedores y ingredientes */
+CREATE TABLE IF NOT EXISTS compras (
+    id_compra INT AUTO_INCREMENT PRIMARY KEY,
+    id_proveedor INT NOT NULL,
+    id_ingrediente INT NOT NULL,
+    cantidad DECIMAL NOT NULL,      /* Cantidad en KG */
+    precio_unitario DECIMAL(10,2) NOT NULL,
+    fecha_compra DATE NOT NULL DEFAULT (CURRENT_DATE),
+    FOREIGN KEY (id_proveedor) REFERENCES proveedores(id_proveedor),
+    FOREIGN KEY (id_ingrediente) REFERENCES ingredientes(id_ingrediente)
+);
 
-/* Actualizamos la columna disponible de la tabla productos */
-UPDATE productos
-SET disponible = CASE
-    WHEN disponible = 1 THEN 'Disponible'
-END;
-
-/* Pedidos 1, 2 y 3, Pagados */
-UPDATE pedidos SET estado_pago = 'Pagado' WHERE id_pedido IN (1, 2, 3);
-
--- UPDATES
-UPDATE detalles_pedido SET comentario = "Sin Comentarios" WHERE comentario = "Sin Decoracion extra"
-UPDATE recetas SET comentario = "Sin Comentarios" WHERE comentario is null;
+CREATE TABLE IF NOT EXISTS promociones (
+    id_promocion INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    tipo ENUM('Porcentaje', 'Monto Fijo') NOT NULL,
+    valor DECIMAL(10,2) NOT NULL,
+    fecha_inicio DATE NOT NULL,
+    fecha_fin DATE
+);
 
 -- Vistas
 -- Creacion de vista 
-CREATE VIEW view_productos AS SELECT id_producto, nombre, tipo_producto, disponible FROM tortas_mariluz.productos;
-CREATE VIEW view_clientes AS SELECT nombre, apellido, telefono FROM tortas_mariluz.clientes;
-CREATE VIEW view_pedidos AS SELECT id_pedido, id_cliente, total FROM tortas_mariluz.pedidos ;
+CREATE VIEW view_productos AS 
+SELECT id_producto, nombre, tipo_producto, disponible 
+FROM tortas_mariluz.productos
+ORDER BY disponible ASC ;
+
+CREATE VIEW view_clientes AS 
+SELECT nombre, apellido, telefono 
+FROM tortas_mariluz.clientes
+ORDER BY nombre ASC ;
+
+CREATE VIEW view_pedidos AS 
+SELECT id_pedido, id_cliente, total 
+FROM tortas_mariluz.pedidos 
+WHERE estado_pago = "Pagado" ;
+
 CREATE VIEW view_ingredientes AS SELECT nombre, stock_actual FROM tortas_mariluz.ingredientes ;
 CREATE VIEW view_detalles_pedido AS SELECT id_pedido, id_producto, cantidad, comentario FROM tortas_mariluz.detalles_pedido ;
+
+CREATE VIEW view_promociones AS
+SELECT nombre, tipo, valor
+FROM tortas_mariluz.promociones
+ORDER BY valor DESC
+LIMIT 1;
+
+/* Consultas Join */
+
+/* devuelve solo los ingredientes que estén asignados a algún producto */
+SELECT r.id_producto, i.nombre AS ingrediente, r.cantidad_usada, r.unidad_medida, r.comentario
+FROM recetas r
+INNER JOIN ingredientes i ON r.id_ingrediente = i.id_ingrediente;
+
+/* todos los ingredientes aunque no estén en ninguna receta */
+SELECT i.id_ingrediente, i.nombre, r.id_producto, r.cantidad_usada
+FROM ingredientes i
+LEFT JOIN recetas r ON i.id_ingrediente = r.id_ingrediente;
 
 -- Usar la vista 
 /* id_producto, nombre, tipo_producto y disponible */
@@ -121,6 +162,15 @@ SELECT * FROM view_ingredientes;
 
 /* id_prodcuto, id_pedido, cantidad, y comentario */
 SELECT * FROM view_detalles_pedido;
+
+/* Ver que pedidos tienen mas de 1 producto1 */
+SELECT id_pedido, COUNT(id_producto) AS productos_distintos
+FROM view_detalles_pedido
+GROUP BY id_pedido
+HAVING productos_distintos > 1;
+
+/* nombre, tipo, valor */
+SELECT * FROM view_promociones ;
 
 -- Stored Producers 
 -- Creacion de Stored Producers 
@@ -153,7 +203,7 @@ BEGIN
     IF v_pagado >= v_total THEN
         UPDATE pedidos SET estado_pago = 'Pagado'
         WHERE id_pedido = p_id_pedido;
-    ELSEIF v_pagado > 0 THEN
+    ELSEIF v_pagado > 0 AND v_pagado <= (v_total / 2) THEN 
         UPDATE pedidos SET estado_pago = 'Parcial'
         WHERE id_pedido = p_id_pedido;
     ELSE
@@ -163,6 +213,7 @@ BEGIN
 END$$
 
 DELIMITER ;
+
 -- Usar Stored Producers 
 /* Agrego nuevo pedido para probar el SP */
 INSERT INTO pedidos (id_cliente, fecha_entrega, total, estado_pago, estado_entrega) VALUES (1, '2025-09-06', 25000, "pendiente", "Pendiente");
@@ -239,6 +290,7 @@ CALL actualizar_stock(4);
 
 -- Funciones
 -- Creacion de Funciones
+-- Funcion 1 
 DELIMITER $$ 
 
 CREATE FUNCTION stock_disponible_ingrediente(
@@ -260,14 +312,15 @@ END$$
 
 DELIMITER ;
 
--- Usar Funciones
+-- Usar Funcion
 /* El as para que cuando muestre la query se muestre stock_oreo y no stock_disponible_ingrediente(7) */
 SELECT stock_disponible_ingrediente(7) AS stock_oreo;
 
-
 -- Creacion de Funciones
+-- Funcion 2 
 DELIMITER $$
 
+/* Calculamos el total del pedido agregando las promociones */
 CREATE FUNCTION calcular_total_pedido(
     p_id_pedido INT
 )
@@ -275,20 +328,41 @@ RETURNS DECIMAL(10,2)
 DETERMINISTIC
 BEGIN
     DECLARE v_total DECIMAL(10,2);
+    DECLARE v_descuento DECIMAL(10,2) DEFAULT 0;
+    DECLARE v_tipo ENUM('Porcentaje', 'Monto Fijo');
+    DECLARE v_valor DECIMAL(10,2);
 
-    -- Calcular total sumando cantidad * precio_unitario de cada producto del pedido
+    -- Calcular subtotal
     SELECT SUM(cantidad * precio_unitario)
     INTO v_total
     FROM detalles_pedido
     WHERE id_pedido = p_id_pedido;
 
-    RETURN v_total;
+    -- Verificar si hay promoción activa
+    SELECT tipo, valor
+    INTO v_tipo, v_valor
+    FROM promociones
+    WHERE CURDATE() >= fecha_inicio 
+    AND (fecha_fin IS NULL OR CURDATE() <= fecha_fin)
+    ORDER BY valor DESC
+    LIMIT 1;
+    /* si fecha fin es null la promo sigue vigente */
+
+    -- Aplicar descuento si existe
+    IF v_tipo = 'Porcentaje' THEN
+        SET v_descuento = v_total * (v_valor / 100);
+    ELSEIF v_tipo = 'Monto Fijo' THEN
+        SET v_descuento = v_valor;
+    END IF;
+
+    -- Retornar total con descuento
+    RETURN v_total - v_descuento;
 END$$
 
 DELIMITER ;
 
--- Usar Funciones
-SELECT calcular_total_pedido(3) AS total_pedido;
+-- Usar Funcion
+SELECT calcular_total_pedido(3) AS total_pedido; -- aca verificar si funca
 
 -- Triggers
 -- Creacion de Triggers
@@ -325,3 +399,17 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+-- Entrega final 
+
+UPDATE pedidos SET estado_entrega = "Entregado"
+WHERE id_pedido = 1;
+
+UPDATE pedidos SET estado_entrega = "Entregado"
+WHERE id_pedido = 2;
+
+UPDATE pedidos SET estado_entrega = "Entregado"
+WHERE id_pedido = 3;
+
+UPDATE pedidos SET estado_entrega = "Entregado"
+WHERE id_pedido = 4;

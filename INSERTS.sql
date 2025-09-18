@@ -223,3 +223,56 @@ INSERT INTO recetas(id_producto, id_ingrediente, cantidad_usada, unidad_medida, 
     "gramos",
     "Usar 50 en una mezcla y 20 en otra para una capa mas oscura"
 );
+
+-- Entrega final
+
+-- empleados 
+
+INSERT INTO empleados(nombre, usuario, contrasena, rol) VALUES (
+    "Mariluz", 
+    "Mari_luz",
+    "1234",
+    "Admin"
+);
+
+-- proveedores
+
+INSERT INTO proveedores(nombre, telefono, email) VALUES (
+    "Provedor de productos",
+    299,
+    "provedor@gmail.com"
+);
+
+-- compras 
+
+INSERT INTO compras(id_proveedor, id_ingrediente, cantidad, precio_unitario) VALUES (
+    1, 
+    1, 
+    10, 
+    10000
+); 
+
+INSERT INTO compras(id_proveedor, id_ingrediente, cantidad, precio_unitario) VALUES (
+    1, 
+    2, 
+    20, 
+    20000
+); 
+
+-- Promociones
+
+INSERT INTO promociones(nombre, tipo, valor, fecha_inicio, fecha_fin) VALUES (
+    "Promo del mes",
+    "Porcentaje", 
+    15, 
+    '2025-09-30',
+    '2025-10-30'
+);
+
+INSERT INTO promociones(nombre, tipo, valor, fecha_inicio, fecha_fin) VALUES (
+    "Promo de prueba",
+    "Porcentaje", 
+    50, 
+    '2025-09-17',
+    '2025-09-27'
+);
